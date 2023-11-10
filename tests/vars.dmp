@@ -1,0 +1,35 @@
+00000000000011c9 <main>:
+    11c9:	f3 0f 1e fa          	endbr64 
+    11cd:	55                   	push   %rbp
+    11ce:	48 89 e5             	mov    %rsp,%rbp
+    11d1:	48 83 ec 10          	sub    $0x10,%rsp
+    11d5:	c7 45 f4 05 00 00 00 	movl   $0x5,-0xc(%rbp)
+    11dc:	c6 45 f3 63          	movb   $0x63,-0xd(%rbp)
+    11e0:	48 c7 45 f8 0a 00 00 	movq   $0xa,-0x8(%rbp)
+    11e7:	00 
+    11e8:	8b 45 f4             	mov    -0xc(%rbp),%eax
+    11eb:	89 c6                	mov    %eax,%esi
+    11ed:	48 8d 3d 4c 2e 00 00 	lea    0x2e4c(%rip),%rdi        # 4040 <_ZSt4cout@@GLIBCXX_3.4>
+    11f4:	e8 c7 fe ff ff       	callq  10c0 <_ZNSolsEi@plt>
+    11f9:	be 20 00 00 00       	mov    $0x20,%esi
+    11fe:	48 89 c7             	mov    %rax,%rdi
+    1201:	e8 9a fe ff ff       	callq  10a0 <_ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_c@plt>
+    1206:	48 89 c2             	mov    %rax,%rdx
+    1209:	0f be 45 f3          	movsbl -0xd(%rbp),%eax
+    120d:	89 c6                	mov    %eax,%esi
+    120f:	48 89 d7             	mov    %rdx,%rdi
+    1212:	e8 89 fe ff ff       	callq  10a0 <_ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_c@plt>
+    1217:	be 20 00 00 00       	mov    $0x20,%esi
+    121c:	48 89 c7             	mov    %rax,%rdi
+    121f:	e8 7c fe ff ff       	callq  10a0 <_ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_c@plt>
+    1224:	48 89 c2             	mov    %rax,%rdx
+    1227:	48 8b 45 f8          	mov    -0x8(%rbp),%rax
+    122b:	48 89 c6             	mov    %rax,%rsi
+    122e:	48 89 d7             	mov    %rdx,%rdi
+    1231:	e8 9a fe ff ff       	callq  10d0 <_ZNSolsEl@plt>
+    1236:	be 0a 00 00 00       	mov    $0xa,%esi
+    123b:	48 89 c7             	mov    %rax,%rdi
+    123e:	e8 5d fe ff ff       	callq  10a0 <_ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_c@plt>
+    1243:	b8 00 00 00 00       	mov    $0x0,%eax
+    1248:	c9                   	leaveq 
+    1249:	c3                   	retq   

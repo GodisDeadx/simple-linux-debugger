@@ -1,0 +1,3 @@
+/home/nullptr/projects/remote/c++/lnx-debugger/build/CMakeFiles/app.dir
+/home/nullptr/projects/remote/c++/lnx-debugger/build/CMakeFiles/edit_cache.dir
+/home/nullptr/projects/remote/c++/lnx-debugger/build/CMakeFiles/rebuild_cache.dir
