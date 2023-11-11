@@ -548,6 +548,25 @@ void debugger::handle_command(const std::string& line) {
     else if(is_prefix(command, "clear")) {
         linenoiseClearScreen();
     }
+    else if(is_prefix(command, "help")) {
+    std::cout << "Available commands:\n"
+              << "  cont                                Continue execution\n"
+              << "  break [ADDRESS|FILE:LINE|FUNCTION]  Set breakpoint\n"
+              << "  step                                Step into next instruction\n"
+              << "  next                                Step over the next line\n"
+              << "  finish                              Finish executing the current function\n"
+              << "  register dump                       Dump register values\n"
+              << "  register read REGISTER              Read the value of a register\n"
+              << "  register write REGISTER VALUE       Write a value to a register\n"
+              << "  memory read ADDRESS                 Read memory at the specified address\n"
+              << "  memory write ADDRESS VALUE          Write a value to the specified address\n"
+              << "  symbol NAME                         Lookup symbol by name\n"
+              << "  stepi                               Step a single instruction with breakpoint check\n"
+              << "  backtrace                           Print function call backtrace\n"
+              << "  variables                           Read and print variables\n"
+              << "  exit                                Exit the debugger\n"
+              << "  clear                               Clear the screen\n";
+    }
     else {
         std::cerr << "Unknown command\n";
     }

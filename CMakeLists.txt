@@ -15,7 +15,7 @@ add_executable(app main.cpp)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -gdwarf-4")
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g -gdwarf-4")
 
-add_executable(break tests/breakpoint.cpp)
+add_executable(break tests/break.cpp)
 set_target_properties(break
                       PROPERTIES COMPILE_FLAGS "-g -O0 -gdwarf-4")
 add_executable(steps tests/steps.cpp)
