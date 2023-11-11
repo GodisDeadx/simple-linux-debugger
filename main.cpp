@@ -171,14 +171,10 @@ std::vector<symbol> dbg::debugger::lookup_symbol(const std::string& name) {
    return syms;
 }
 
-#include <thread>
-#include <chrono>
-
 void debugger::initialise_load_address() {
     //If this is a dynamic library (e.g. PIE)
     if (m_elf.get_hdr().type == elf::et::dyn) {
-        //The load address is found in /proc/<pid>/maps
-        //std::this_thread::sleep_for(std::chrono::milliseconds(60000));
+        //The load address is found in /proc/<pid>/maps;
         std::ifstream map("/proc/" + std::to_string(m_pid) + "/maps");
         if (!map.is_open()) {
             std::cerr << "Error opening file: " << strerror(errno) << std::endl;
