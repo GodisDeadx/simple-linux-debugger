@@ -31,8 +31,14 @@
 *.out
 *.app
 
-
+# custom directories
 temp/
 build/
 wtf/
+tests/*.dmp
+tests/break
+tests/steps
+tests/vars
+
+# ignore local binary
 app
