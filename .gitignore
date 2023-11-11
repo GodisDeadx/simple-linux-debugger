@@ -32,9 +32,7 @@
 *.app
 
 # custom directories
-temp/
 build/
-wtf/
 tests/*.dmp
 tests/break
 tests/steps
