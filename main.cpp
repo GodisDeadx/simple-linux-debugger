@@ -17,6 +17,8 @@
 #include "include/debugger.hpp"
 #include "include/registers.hpp"
 
+using namespace dbg;
+
 class ptrace_expr_content : public dwarf::expr_context {
 public:
     ptrace_expr_content (pid_t pid) : m_pid{pid} {}
@@ -35,6 +37,31 @@ private:
     pid_t m_pid;
 };
 
+class ptrace_expr_context : public dwarf::expr_context {
+public:
+    ptrace_expr_context (pid_t pid, uint64_t load_address) : 
+       m_pid{pid}, m_load_address(load_address) {}
+
+    dwarf::taddr reg (unsigned regnum) override {
+        return debug::get_register_value_from_dwarf_register(m_pid, regnum);
+    }
+
+    dwarf::taddr pc() {
+        struct user_regs_struct regs;
+        ptrace(PTRACE_GETREGS, m_pid, nullptr, &regs);
+        return regs.rip - m_load_address;
+    }
+
+    dwarf::taddr deref_size (dwarf::taddr address, unsigned size) override {
+        //TODO take into account size
+        return ptrace(PTRACE_PEEKDATA, m_pid, address + m_load_address, nullptr);
+    }
+
+private:
+    pid_t m_pid;
+    uint64_t m_load_address;
+};
+template class std::initializer_list<dwarf::taddr>;
 void debugger::read_variables() {
     using namespace dwarf;
 
@@ -43,32 +70,39 @@ void debugger::read_variables() {
     for (const auto& die : func) {
         if (die.tag == DW_TAG::variable) {
             auto loc_val = die[DW_AT::location];
-            if (loc_val.get_type()  == value::type::exprloc) {
-                ptrace_expr_content context{m_pid};
+
+            //only supports exprlocs for now
+            if (loc_val.get_type() == value::type::exprloc) {
+                ptrace_expr_context context {m_pid, m_load_address};
                 auto result = loc_val.as_exprloc().evaluate(&context);
 
                 switch (result.location_type) {
-                    case expr_result::type::address: 
-                    {
-                        auto value = read_memory(result.value);
-                        std::cout << at_name(die) << " (0x" << std::hex << result.value << ") = " << value << '\n';
-                    }
-                    case expr_result::type::reg:
-                    {
-                        auto value = debug::get_register_value_from_dwarf_register(m_pid, result.value);
-                        std::cout << at_name(die) << " (reg " << result.value << ") = " << value << '\n';
-                        break;
-                    }
-                    default:
-                        throw std::runtime_error{"Unhandled variable location"};
-                    }
-                } else {
+                case expr_result::type::address:
+                {
+                    auto offset_addr = result.value;
+                    auto value = read_memory(offset_addr);
+                    std::cout << at_name(die) << " (0x" << std::hex << offset_addr << ") = " << value << std::endl;
+                    break;
+                }
+
+                case expr_result::type::reg:
+                {
+                    auto value = debug::get_register_value_from_dwarf_register(m_pid, result.value);
+                    std::cout << at_name(die) << " (reg " << result.value << ") = " << value << std::endl;
+                    break;
+                }
+
+                default:
+                    throw std::runtime_error{"Unhandled variable location"};
+                }
+            }
+            else {
                 throw std::runtime_error{"Unhandled variable location"};
             }
         }
     }
+}
 
-};
 
 void debugger::print_backtrace() {
     auto output_frame = [frame_number = 0](auto&& func) mutable {
@@ -108,18 +142,18 @@ void breakpoint::disable() {
 }
 
 
-debugger::symbol_type to_symbol_type(elf::stt sym) {
+symbol_type to_symbol_type(elf::stt sym) {
     switch (sym) {
-    case elf::stt::notype: return   debugger::symbol_type::notype;
-    case elf::stt::object: return   debugger::symbol_type::object;
-    case elf::stt::func: return     debugger::symbol_type::func;
-    case elf::stt::section: return  debugger::symbol_type::section;
-    case elf::stt::file: return     debugger::symbol_type::file;
-    default: return                 debugger::symbol_type::notype;
+    case elf::stt::notype: return   symbol_type::notype;
+    case elf::stt::object: return   symbol_type::object;
+    case elf::stt::func: return     symbol_type::func;
+    case elf::stt::section: return  symbol_type::section;
+    case elf::stt::file: return     symbol_type::file;
+    default: return                 symbol_type::notype;
     }
 };
 
-std::vector<debugger::symbol> debugger::lookup_symbol(const std::string& name) {
+std::vector<symbol> dbg::debugger::lookup_symbol(const std::string& name) {
    std::vector<symbol> syms;
 
    for (auto& sec : m_elf.sections()) {
@@ -129,7 +163,7 @@ std::vector<debugger::symbol> debugger::lookup_symbol(const std::string& name) {
       for (auto sym : sec.as_symtab()) {
          if (sym.get_name() == name) {
             auto& d = sym.get_data();
-            syms.push_back(symbol{ to_symbol_type(d.type()), sym.get_name(), static_cast<long>(d.value) });
+            syms.push_back(symbol{ to_symbol_type(d.type()), sym.get_name(), d.value });
          }
       }
    }
@@ -137,17 +171,30 @@ std::vector<debugger::symbol> debugger::lookup_symbol(const std::string& name) {
    return syms;
 }
 
+#include <thread>
+#include <chrono>
+
 void debugger::initialise_load_address() {
     //If this is a dynamic library (e.g. PIE)
     if (m_elf.get_hdr().type == elf::et::dyn) {
         //The load address is found in /proc/<pid>/maps
+        //std::this_thread::sleep_for(std::chrono::milliseconds(60000));
         std::ifstream map("/proc/" + std::to_string(m_pid) + "/maps");
+        if (!map.is_open()) {
+            std::cerr << "Error opening file: " << strerror(errno) << std::endl;
+            exit(1);
+        }
 
         //Read the first address from the file
         std::string addr;
         std::getline(map, addr, '-');
 
-      m_load_address = std::stoi(addr, 0, 16);
+        try {
+            m_load_address = std::stoll(addr, 0, 16);
+        } catch (const std::out_of_range& e) {
+            std::cerr << "Error converting address to integer: " << e.what() << std::endl;
+            exit(1);
+        }
     }
 }
 
@@ -184,13 +231,13 @@ void debugger::step_out() {
 }
 
 void debugger::step_in() {
-   auto line = get_line_from_entry(get_offset_pc())->line;
+   auto line = get_line_entry_from_pc(get_offset_pc())->line;
 
-   while (get_line_from_entry(get_offset_pc())->line == line) {
+   while (get_line_entry_from_pc(get_offset_pc())->line == line) {
       single_step_instruction_with_breakpoint_check();
    }
 
-   auto line_entry = get_line_from_entry(get_offset_pc());
+   auto line_entry = get_line_entry_from_pc(get_offset_pc());
    print_source(line_entry->file->path, line_entry->line, 0);
 }
 
@@ -199,8 +246,8 @@ void debugger::step_over() {
     auto func_entry = at_low_pc(func);
     auto func_end = at_high_pc(func);
 
-    auto line = get_line_from_entry(func_entry);
-    auto start_line = get_line_from_entry(get_offset_pc());
+    auto line = get_line_entry_from_pc(func_entry);
+    auto start_line = get_line_entry_from_pc(get_offset_pc());
 
     std::vector<std::intptr_t> to_delete{};
 
@@ -277,7 +324,7 @@ dwarf::die debugger::get_function_from_pc(uint64_t pc) {
     throw std::out_of_range{"Cannot find function"};
 }
 
-dwarf::line_table::iterator debugger::get_line_from_entry(uint64_t pc) {
+dwarf::line_table::iterator debugger::get_line_entry_from_pc(uint64_t pc) {
     for (auto &cu : m_dwarf.compilation_units()) {
         if (die_pc_range(cu.root()).contains(pc)) {
             auto &lt = cu.get_line_table();
@@ -368,12 +415,21 @@ void debugger::handle_sigtrap(siginfo_t info) {
     switch (info.si_code) {
         //one of these will be set if a breakpoint was hit
     case SI_KERNEL:
+    // case TRAP_BRKPT:
+    // {
+    //     set_pc(get_pc()-1);
+    //     std::cout << "Hit breakpoint at address 0x" << std::hex << get_pc() << std::endl;
+    //     auto offset_pc = offset_load_address(get_pc()); //rember to offset the pc for querying DWARF
+    //     auto line_entry = get_line_from_entry(offset_pc);
+    //     print_source(line_entry->file->path, line_entry->line, 0);
+    //     return;
+    // }
     case TRAP_BRKPT:
     {
         set_pc(get_pc()-1);
         std::cout << "Hit breakpoint at address 0x" << std::hex << get_pc() << std::endl;
         auto offset_pc = offset_load_address(get_pc()); //rember to offset the pc for querying DWARF
-        auto line_entry = get_line_from_entry(offset_pc);
+        auto line_entry = get_line_entry_from_pc(offset_pc);
         print_source(line_entry->file->path, line_entry->line, 0);
         return;
     }
@@ -430,6 +486,7 @@ void debugger::handle_command(const std::string& line) {
             }
             else if (args[1].find(':') != std::string::npos) {
                 auto file_and_line = split(args[1], ':');
+
                 set_breakpoint_at_source_line(file_and_line[0], std::stoi(file_and_line[1]));
             }
             else {
@@ -476,7 +533,7 @@ void debugger::handle_command(const std::string& line) {
     }
     else if(is_prefix(command, "stepi")) {
         single_step_instruction_with_breakpoint_check();
-        auto line_entry = get_line_from_entry(get_pc());
+        auto line_entry = get_line_entry_from_pc(get_pc());
         print_source(line_entry->file->path, line_entry->line, 0);
     }
     else if(is_prefix(command, "backtrace")) {
@@ -507,7 +564,7 @@ void debugger::set_breakpoint_at_function(const std::string& name) {
         for (const auto& die : cu.root()) {
             if (die.has(dwarf::DW_AT::name) && at_name(die) == name) {
                 auto low_pc = at_low_pc(die);
-                auto entry = get_line_from_entry(low_pc);
+                auto entry = get_line_entry_from_pc(low_pc);
                 ++entry; //skip prologue
                 set_breakpoint_at_address(offset_dwarf_address(entry->address));
             }
