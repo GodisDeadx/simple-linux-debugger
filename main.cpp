@@ -630,7 +630,7 @@ void execute_debugee (const std::string& prog_name) {
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        std::cerr << "Program name not specified";
+        std::cerr << "Usage: " << argv[0] << " <executable to debug>\n";
         return -1;
     }
 

@@ -10,7 +10,7 @@ execute_process(COMMAND pkg-config --cflags --libs libdwarf++ OUTPUT_VARIABLE PK
 string(REPLACE " " ";" PKG_CONFIG_LIST ${PKG_CONFIG_RESULT})
 
 # Add source files to the project
-add_executable(app main.cpp)
+add_executable(dbg main.cpp)
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -gdwarf-4")
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g -gdwarf-4")
@@ -23,12 +23,12 @@ set_target_properties(steps
                       PROPERTIES COMPILE_FLAGS "-g -O0 -gdwarf-4")
 
 # Add the pkg-config flags to the compile and link options
-target_include_directories(app PRIVATE /usr/local/lib)
-target_include_directories(app PRIVATE ./include/)
-target_compile_options(app PRIVATE ${PKG_CONFIG_LIST})
-target_link_options(app PRIVATE ${PKG_CONFIG_LIST})
+target_include_directories(dbg PRIVATE /usr/local/lib)
+target_include_directories(dbg PRIVATE ./include/)
+target_compile_options(dbg PRIVATE ${PKG_CONFIG_LIST})
+target_link_options(dbg PRIVATE ${PKG_CONFIG_LIST})
 
 # Link libs
-target_link_libraries(app PRIVATE linenoise)
-target_link_libraries(app PRIVATE dwarf++)
-target_link_libraries(app PRIVATE elf++)
+target_link_libraries(dbg PRIVATE linenoise)
+target_link_libraries(dbg PRIVATE dwarf++)
+target_link_libraries(dbg PRIVATE elf++)
